@@ -1,6 +1,6 @@
 # clasify_flowers
 
-Download images from: 
+Download images from: https://www.robots.ox.ac.uk/~vgg/data/flowers/102/index.html
 Extract to ./data/
 
 APP:
