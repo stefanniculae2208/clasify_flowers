@@ -60,7 +60,7 @@ class FlowerCNN:
         # model = keras.Sequential([
         #     keras.Input(shape=self.input_shape),
         #     layers.Rescaling(1./255),
-        #     data_augmentation,
+        #     #data_augmentation,
         #     layers.Conv2D(32, (3, 3), activation='relu'),
         #     layers.MaxPooling2D((2, 2)),
         #     layers.Conv2D(64, (3, 3), activation='relu'),
@@ -79,11 +79,16 @@ class FlowerCNN:
         model = models.Sequential([
             keras.Input(shape=self.input_shape),
             layers.Rescaling(1./255),
-            # data_augmentation,
+            data_augmentation,
             base_model, 
             layers.GlobalAveragePooling2D(),
+            layers.BatchNormalization(),
             # layers.Lambda(bilinear_pooling), 
-            layers.Dense(128, activation='relu'),  # Dense layer with 128 units
+            layers.Dense(128, 
+                      activation='relu',
+                      kernel_regularizer=keras.regularizers.l2(0.01),  
+                      bias_regularizer=keras.regularizers.l2(0.01)),
+            layers.BatchNormalization(),
             layers.Dropout(dropout_rate),
             layers.Dense(102, activation='softmax')  # Output layer with 102 units for classification
         ])

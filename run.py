@@ -1,3 +1,5 @@
+import os # Disable GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import numpy as np
 # from sklearn.model_selection import GridSearchCV
 # from scikeras.wrappers import KerasClassifier
@@ -32,7 +34,7 @@ def find_best_model():
     learning_rates = [0.001]
     dropout_rates = [0.5]
     epochs_list = [50]
-    batch_sizes = [16]
+    batch_sizes = [8]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
 
     early_stopping = EarlyStopping(
@@ -69,7 +71,7 @@ def find_best_model():
         predictions = model.predict(flower_cnn.test_images, batch_size=batch_size, verbose=0)
         predictions = np.argmax(predictions, axis=1)
         avg_accuracy = accuracy_score(flower_cnn.test_labels, predictions)
-        print(f"Accuracy on test data: {avg_accuracy:.4f}")
+        print(f"Accuracy on test data: {avg_accuracy}")
 
         # Update the best accuracy and parameters
         if avg_accuracy > best_accuracy:
@@ -85,8 +87,8 @@ def find_best_model():
 
     flower_cnn.evaluate()
 
-    flower_cnn.model.save(f".data/models/best_model_{best_accuracy*100}%.keras")
-    print(f"Model saved as '.data/models/best_model_{best_accuracy*100}%.keras'")
+    flower_cnn.model.save(f"data/models/best_model_{best_accuracy*100}%.keras")
+    print(f"Model saved as 'data/models/best_model_{best_accuracy*100}%.keras'")
     print(f"Best parameters: {best_params}")
     print(f"Best accuracy: {best_accuracy}")
 

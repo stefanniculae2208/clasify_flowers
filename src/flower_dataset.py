@@ -38,7 +38,11 @@ class FlowerDataset:
         # I don't have enough RAM to load the files directly into memory so I have to uses a memmap.
         self.train_images = np.memmap(self.train_images_memmap, dtype='float32', mode='w+', shape=(len(train_indices),) + self.input_shape)
         self.test_images = np.memmap(self.test_images_memmap, dtype='float32', mode='w+', shape=(len(test_indices),) + self.input_shape)
-
+        
+        # Pre-allocate label lists with correct size
+        self.train_labels = [0] * len(train_indices)
+        self.test_labels = [0] * len(test_indices)
+        
         train_nr = 0
         test_nr = 0
         validation_nr = 0
@@ -51,17 +55,27 @@ class FlowerDataset:
             
             if idx in train_indices:
                 print(f"Train at {train_nr}")
-                self.train_images[train_nr - 1] = np.array(img)
-                self.train_labels.append(labels[idx])
-                train_nr+=1
+                self.train_images[train_nr] = np.array(img)
+                self.train_labels[train_nr] = labels[idx]
+                train_nr += 1
             elif idx in test_indices:
                 print(f"Test at {test_nr}")
                 self.test_images[test_nr] = np.array(img)
-                self.test_labels.append(labels[idx])
-                test_nr+=1
+                self.test_labels[test_nr] = labels[idx]
+                test_nr += 1
             elif idx in val_indices:
-                validation_nr+=1
+                validation_nr += 1
 
+        # Convert labels to numpy arrays
+        # self.train_labels = np.array(self.train_labels)
+        # self.test_labels = np.array(self.test_labels)
+        
+        # Verify data integrity
+        assert len(self.train_images) == len(self.train_labels), "Training images and labels count mismatch"
+        assert len(self.test_images) == len(self.test_labels), "Test images and labels count mismatch"
+        assert train_nr == len(train_indices), f"Expected {len(train_indices)} training samples, got {train_nr}"
+        assert test_nr == len(test_indices), f"Expected {len(test_indices)} test samples, got {test_nr}"
+        
         print(f"Train: {train_nr}\nTest: {test_nr}\nValidation: {validation_nr}\nTotal: {len(image_files)} vs {test_nr+train_nr+validation_nr}")
         
     def summary(self):
