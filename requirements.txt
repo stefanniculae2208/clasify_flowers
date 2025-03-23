@@ -1,3 +1,7 @@
 numpy
 pandas
 matplotlib
+scipy
+tensorflow[and-cuda]
+scikeras
+scikit-learn==1.5.2
