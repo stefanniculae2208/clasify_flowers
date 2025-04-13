@@ -57,18 +57,34 @@ class FlowerCNN:
             layers.RandomContrast(0.2)
         ])
 
+        # data_augmentation = keras.Sequential([
+        #     layers.RandomFlip("horizontal"),
+        #     layers.RandomFlip("vertical"),
+        #     layers.RandomRotation(0.4),
+        #     layers.RandomZoom(0.2),
+        #     layers.RandomContrast(0.2),
+        #     layers.RandomTranslation(0.1, 0.1),
+        # ])
+
         # model = keras.Sequential([
         #     keras.Input(shape=self.input_shape),
         #     layers.Rescaling(1./255),
-        #     #data_augmentation,
+        #     data_augmentation,
         #     layers.Conv2D(32, (3, 3), activation='relu'),
         #     layers.MaxPooling2D((2, 2)),
+        #     layers.BatchNormalization(),
         #     layers.Conv2D(64, (3, 3), activation='relu'),
         #     layers.MaxPooling2D((2, 2)),
+        #     layers.BatchNormalization(),
         #     layers.Conv2D(128, (3, 3), activation='relu'),
         #     layers.MaxPooling2D((2, 2)),
+        #     layers.BatchNormalization(),
         #     layers.Flatten(),
-        #     layers.Dense(128, activation='relu'),
+        #     layers.Dense(128, 
+        #               activation='relu',
+        #               kernel_regularizer=keras.regularizers.l2(0.01),  
+        #               bias_regularizer=keras.regularizers.l2(0.01)),
+        #     layers.BatchNormalization(),
         #     layers.Dropout(dropout_rate),
         #     layers.Dense(102, activation='softmax')
         # ])

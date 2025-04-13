@@ -17,3 +17,9 @@ APP:
 DOCKER:
 
     sudo docker-compose up --build
+
+DEPENDANCIES:
+
+    python
+    python3-tk
+    

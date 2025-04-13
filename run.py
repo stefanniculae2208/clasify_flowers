@@ -1,17 +1,42 @@
 import os # Disable GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import numpy as np
-# from sklearn.model_selection import GridSearchCV
-# from scikeras.wrappers import KerasClassifier
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
 from tensorflow import keras
 from tensorflow.keras import layers
 from sklearn.model_selection import StratifiedKFold
 import itertools
 from sklearn.metrics import accuracy_score
 from tensorflow.keras.callbacks import EarlyStopping
+import tensorflow as tf
+from PIL import Image
 
 from src.flower_dataset import FlowerDataset
 from src.flower_cnn import FlowerCNN
+from src.flower_gui import FlowerClassifierGUI
+
+
+# Oxford 102 Flower Dataset class names
+FLOWER_NAMES = [
+    "pink primrose", "hard-leaved pocket orchid", "canterbury bells", "sweet pea", "english marigold", 
+    "tiger lily", "moon orchid", "bird of paradise", "monkshood", "globe thistle", "snapdragon", 
+    "colt's foot", "king protea", "spear thistle", "yellow iris", "globe-flower", "purple coneflower", 
+    "peruvian lily", "balloon flower", "giant white arum lily", "fire lily", "pincushion flower", 
+    "fritillary", "red ginger", "grape hyacinth", "corn poppy", "prince of wales feathers", "stemless gentian", 
+    "artichoke", "sweet william", "carnation", "garden phlox", "love in the mist", "mexican aster", 
+    "alpine sea holly", "ruby-lipped cattleya", "cape flower", "great masterwort", "siam tulip", 
+    "lenten rose", "barbeton daisy", "daffodil", "sword lily", "poinsettia", "bolero deep blue", 
+    "wallflower", "marigold", "buttercup", "oxeye daisy", "common dandelion", "petunia", "wild pansy", 
+    "primula", "sunflower", "pelargonium", "bishop of llandaff", "gaura", "geranium", "orange dahlia", 
+    "pink-yellow dahlia?", "cautleya spicata", "japanese anemone", "black-eyed susan", "silverbush", 
+    "californian poppy", "osteospermum", "spring crocus", "bearded iris", "windflower", "tree poppy", 
+    "gazania", "azalea", "water lily", "rose", "thorn apple", "morning glory", "passion flower", 
+    "lotus", "toad lily", "anthurium", "frangipani", "clematis", "hibiscus", "columbine", "desert-rose", 
+    "tree mallow", "magnolia", "cyclamen", "watercress", "canna lily", "hippeastrum", "bee balm", 
+    "ball moss", "foxglove", "bougainvillea", "camellia", "mallow", "mexican petunia", "bromelia", 
+    "blanket flower", "trumpet creeper", "blackberry lily"
+]
 
 
 def find_best_model():
@@ -93,5 +118,26 @@ def find_best_model():
     print(f"Best accuracy: {best_accuracy}")
 
 
+def classify_image(model, image_path):
+    try:
+        img = Image.open(image_path).convert("RGB")
+        img = np.array(img)
+        img = tf.keras.preprocessing.image.img_to_array(
+            tf.image.resize(img, (224, 224))
+        )
+        img = np.expand_dims(img, axis=0) 
+        
+        predictions = model.predict(img)
+        class_idx = np.argmax(predictions[0])
+        confidence = predictions[0][class_idx] * 100
+        flower_name = FLOWER_NAMES[class_idx]
+        
+        return f"{flower_name} (Confidence: {confidence:.2f}%)"
+        
+    except Exception as e:
+        raise Exception(f"Error processing image: {str(e)}")
+
+
 if __name__ == "__main__":
-    find_best_model()
+    app = FlowerClassifierGUI(find_best_model, classify_image)
+    app.run()
