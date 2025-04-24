@@ -11,6 +11,8 @@ class FlowerCNN:
         self.input_shape = input_shape
         self.train_images = []
         self.train_labels = []
+        self.validation_images = []
+        self.validation_labels = []
         self.test_images = []
         self.test_labels = []
         self.model = []
@@ -124,7 +126,11 @@ class FlowerCNN:
         self.test_images = np.memmap(test_images_memmap, dtype='float32', mode='r', shape=(len(test_labels),) + self.input_shape)
         self.test_labels = np.array(test_labels)
         self.test_labels = self.test_labels - 1
-    
+
+    def set_validation_data(self, validation_images_memmap, validation_labels):
+        self.validation_images = np.memmap(validation_images_memmap, dtype='float32', mode='r', shape=(len(validation_labels),) + self.input_shape)
+        self.validation_labels = np.array(validation_labels)
+        self.validation_labels = self.validation_labels - 1
     
     def train(self, epochs=10, batch_size=32):
         self.model.fit(self.train_images, self.train_labels, epochs=epochs, batch_size=batch_size, validation_split=0.2)

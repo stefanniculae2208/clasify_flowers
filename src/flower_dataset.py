@@ -15,9 +15,12 @@ class FlowerDataset:
         self.input_shape = input_shape
         self.train_images = []
         self.train_labels = []
+        self.validation_images = []
+        self.validation_labels = []
         self.test_images = []
         self.test_labels = []
         self.train_images_memmap = './utils/train_images.dat'
+        self.validation_images_memmap = './utils/validation_images.dat'
         self.test_images_memmap = './utils/test_images.dat'
 
 
@@ -37,10 +40,12 @@ class FlowerDataset:
 
         # I don't have enough RAM to load the files directly into memory so I have to uses a memmap.
         self.train_images = np.memmap(self.train_images_memmap, dtype='float32', mode='w+', shape=(len(train_indices),) + self.input_shape)
+        self.validation_images = np.memmap(self.validation_images_memmap, dtype='float32', mode='w+', shape=(len(val_indices),) + self.input_shape)
         self.test_images = np.memmap(self.test_images_memmap, dtype='float32', mode='w+', shape=(len(test_indices),) + self.input_shape)
         
         # Pre-allocate label lists with correct size
         self.train_labels = [0] * len(train_indices)
+        self.validation_labels = [0] * len(val_indices)
         self.test_labels = [0] * len(test_indices)
         
         train_nr = 0
@@ -64,20 +69,27 @@ class FlowerDataset:
                 self.test_labels[test_nr] = labels[idx]
                 test_nr += 1
             elif idx in val_indices:
+                print(f"Validation at {validation_nr}")
+                self.validation_images[validation_nr] = np.array(img)
+                self.validation_labels[validation_nr] = labels[idx]
                 validation_nr += 1
 
         # Convert labels to numpy arrays
         # self.train_labels = np.array(self.train_labels)
         # self.test_labels = np.array(self.test_labels)
+        # self.validation_labels = np.array(self.validation_labels)
         
         # Verify data integrity
         assert len(self.train_images) == len(self.train_labels), "Training images and labels count mismatch"
+        assert len(self.validation_images) == len(self.validation_labels), "Validation images and labels count mismatch"
         assert len(self.test_images) == len(self.test_labels), "Test images and labels count mismatch"
         assert train_nr == len(train_indices), f"Expected {len(train_indices)} training samples, got {train_nr}"
+        assert validation_nr == len(val_indices), f"Expected {len(val_indices)} validation samples, got {validation_nr}"
         assert test_nr == len(test_indices), f"Expected {len(test_indices)} test samples, got {test_nr}"
         
         print(f"Train: {train_nr}\nTest: {test_nr}\nValidation: {validation_nr}\nTotal: {len(image_files)} vs {test_nr+train_nr+validation_nr}")
         
     def summary(self):
         print(f"Total Training Images: {len(self.train_images)}")
+        print(f"Total Validation Images: {len(self.validation_images)}")
         print(f"Total Testing Images: {len(self.test_images)}")

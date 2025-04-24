@@ -47,6 +47,7 @@ def find_best_model():
 
     flower_cnn = FlowerCNN(input_shape)
     flower_cnn.set_training_data(dataset.train_images_memmap, dataset.train_labels)
+    flower_cnn.set_validation_data(dataset.validation_images_memmap, dataset.validation_labels)
     flower_cnn.set_test_data(dataset.test_images_memmap, dataset.test_labels)
 
     # optimizers = ['adam', 'sgd', 'rmsprop', 'adamax', 'nadam']
@@ -78,25 +79,21 @@ def find_best_model():
 
         model = flower_cnn.create_model(optimizer=optimizer, dropout_rate=dropout_rate, learning_rate=learning_rate)
 
-        # Use StratifiedKFold for cross-validation
-        # cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-        # fold_accuracies = []
-        # for train_idx, val_idx in cv.split(flower_cnn.train_images, flower_cnn.train_labels):
-        #     X_train, X_val = flower_cnn.train_images[train_idx], flower_cnn.train_images[val_idx]
-        #     y_train, y_val = flower_cnn.train_labels[train_idx], flower_cnn.train_labels[val_idx]
-        #     model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
-        #     predictions = model.predict(X_val, batch_size=batch_size, verbose=0)
-        #     predictions = np.argmax(predictions, axis=1)
-        #     fold_accuracy = accuracy_score(y_val, predictions)
-        #     fold_accuracies.append(fold_accuracy)
-        # avg_accuracy = np.mean(fold_accuracies)
-        # print(f"Average accuracy for this combination: {avg_accuracy}")
-
-        model.fit(flower_cnn.train_images, flower_cnn.train_labels, epochs=epochs, batch_size=batch_size, callbacks=[early_stopping], verbose=1)
-        predictions = model.predict(flower_cnn.test_images, batch_size=batch_size, verbose=0)
-        predictions = np.argmax(predictions, axis=1)
-        avg_accuracy = accuracy_score(flower_cnn.test_labels, predictions)
-        print(f"Accuracy on test data: {avg_accuracy}")
+        model.fit(
+            flower_cnn.train_images, 
+            flower_cnn.train_labels, 
+            epochs=epochs, 
+            batch_size=batch_size, 
+            validation_data=(flower_cnn.validation_images, flower_cnn.validation_labels),
+            callbacks=[early_stopping], 
+            verbose=1
+        )
+        
+        # Get validation accuracy for model selection
+        val_predictions = model.predict(flower_cnn.validation_images, batch_size=batch_size, verbose=0)
+        val_predictions = np.argmax(val_predictions, axis=1)
+        avg_accuracy = accuracy_score(flower_cnn.validation_labels, val_predictions)
+        print(f"Accuracy on validation data: {avg_accuracy}")
 
         # Update the best accuracy and parameters
         if avg_accuracy > best_accuracy:
