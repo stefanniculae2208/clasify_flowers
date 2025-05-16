@@ -15,6 +15,7 @@ from PIL import Image
 from src.flower_dataset import FlowerDataset
 from src.flower_cnn import FlowerCNN
 from src.flower_gui import FlowerClassifierGUI
+from src.flower_siamese import FlowerSiamese
 
 
 # Oxford 102 Flower Dataset class names
@@ -136,6 +137,110 @@ def classify_image(model, image_path):
         raise Exception(f"Error processing image: {str(e)}")
 
 
+def find_best_model_siamese():
+    """
+    Find the best siamese model for both classification and segmentation
+    """
+    print("Finding best siamese model for classification and segmentation...")
+    input_shape = (224, 224, 3)
+    segmentation_dir = "/home/stefan/Documents/clasify_flowers/utils/segmim/"
+    dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape, segmentation_dir)
+    dataset.load_data()
+    dataset.summary()
+    
+    optimizers = ['adam']
+    learning_rates = [0.001]
+    dropout_rates = [0.5]
+    epochs_list = [1]
+    batch_sizes = [16]
+    param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
+    
+    early_stopping = EarlyStopping(
+        monitor='val_loss',
+        patience=3,
+        restore_best_weights=True
+    )
+    
+    best_combined_metric = 0
+    best_params = {}
+    best_model = None
+    
+    for optimizer, learning_rate, dropout_rate, epochs, batch_size in param_combinations:
+        print(f"\nTraining with: optimizer={optimizer}, learning_rate={learning_rate}, "
+              f"dropout_rate={dropout_rate}, epochs={epochs}, batch_size={batch_size}")
+        
+        siamese_model = FlowerSiamese(input_shape=input_shape)
+        model = siamese_model.create_model(optimizer=optimizer, dropout_rate=dropout_rate, learning_rate=learning_rate)
+        model.summary()
+        siamese_model.set_training_data(dataset.train_images_memmap, dataset.train_labels, dataset.train_masks_memmap)
+        siamese_model.set_validation_data(dataset.validation_images_memmap, dataset.validation_labels, dataset.validation_masks_memmap)
+        siamese_model.set_test_data(dataset.test_images_memmap, dataset.test_labels, dataset.test_masks_memmap)
+        
+        try:
+            train_outputs = {
+                'classification_output': siamese_model.train_labels,
+                'segmentation_output': siamese_model.train_masks
+            }
+            validation_outputs = {
+                'classification_output': siamese_model.validation_labels,
+                'segmentation_output': siamese_model.validation_masks
+            }
+            history = model.fit(
+                siamese_model.train_images,
+                train_outputs,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=(
+                    siamese_model.validation_images,
+                    validation_outputs
+                ) if siamese_model.validation_images is not None else None,
+                callbacks=[early_stopping]
+            )
+            val_classification_acc = max(history.history['val_classification_output_accuracy']) if 'val_classification_output_accuracy' in history.history else 0
+            val_segmentation_iou = max(history.history['val_segmentation_output_iou']) if 'val_segmentation_output_iou' in history.history else 0
+            combined_metric = (0.5 * val_classification_acc + 0.5 * val_segmentation_iou)
+            
+            print(f"Validation classification accuracy: {val_classification_acc:.4f}")
+            print(f"Validation segmentation IoU: {val_segmentation_iou:.4f}")
+            print(f"Combined metric: {combined_metric:.4f}")
+            if combined_metric > best_combined_metric:
+                best_combined_metric = combined_metric
+                best_params = {
+                    'optimizer': optimizer,
+                    'learning_rate': learning_rate,
+                    'dropout_rate': dropout_rate,
+                    'epochs': epochs,
+                    'batch_size': batch_size,
+                    'val_classification_accuracy': val_classification_acc,
+                    'val_segmentation_iou': val_segmentation_iou
+                }
+                best_model = siamese_model
+        
+        except Exception as e:
+            print(f"Error during training: {str(e)}")
+            continue
+    
+    if best_model is None:
+        print("No successful model training. Please check the errors above.")
+        return None
+    
+    print("\n\nBest hyperparameters:")
+    for param, value in best_params.items():
+        print(f"{param}: {value}")
+    
+    try:
+        print("\nEvaluating the best model on test data...")
+        metrics = best_model.evaluate()      
+        os.makedirs("./data/models", exist_ok=True)
+        best_model.model.save("./data/models/best_siamese_model.keras")
+        print("Best siamese model saved to ./data/models/best_siamese_model.keras")  
+    except Exception as e:
+        print(f"Error during evaluation: {str(e)}")
+    
+    return best_model
+
+
 if __name__ == "__main__":
-    app = FlowerClassifierGUI(find_best_model, classify_image)
-    app.run()
+    # app = FlowerClassifierGUI(find_best_model, classify_image)
+    # app.run()
+    find_best_model_siamese()
