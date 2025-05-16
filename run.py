@@ -41,7 +41,8 @@ FLOWER_NAMES = [
 
 def find_best_model():
     input_shape=(224, 224, 3)
-    dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape)
+    segmentation_dir="/home/stefan/Documents/clasify_flowers/utils/segmim/"
+    dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape, segmentation_dir)
     dataset.load_data()
     dataset.summary()
 
