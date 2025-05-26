@@ -199,6 +199,120 @@ class FlowerSiamese:
             print(f"{name}: {value}")     
         return results
     
+    def calculate_classification_metrics(self):
+        """
+        Manually calculate precision and recall for the classification task
+        
+        Returns:
+            dict: Dictionary containing precision and recall metrics
+        """
+        if self.test_images is None or self.test_labels is None or self.model is None:
+            print("Test data or model not available")
+            return None
+            
+        predictions = self.model.predict(self.test_images)
+        classification_predictions = predictions['classification_output']
+        predicted_classes = np.argmax(classification_predictions, axis=1)
+        true_classes = self.test_labels
+        num_classes = self.num_classes
+        true_positives = np.zeros(num_classes)
+        false_positives = np.zeros(num_classes)
+        false_negatives = np.zeros(num_classes)
+        
+        for i in range(num_classes):
+            true_positives[i] = np.sum((predicted_classes == i) & (true_classes == i))
+            false_positives[i] = np.sum((predicted_classes == i) & (true_classes != i))
+            false_negatives[i] = np.sum((predicted_classes != i) & (true_classes == i))
+
+        precision = np.zeros(num_classes)
+        recall = np.zeros(num_classes)
+        
+        for i in range(num_classes):
+            if true_positives[i] + false_positives[i] > 0:
+                precision[i] = true_positives[i] / (true_positives[i] + false_positives[i])
+            else:
+                precision[i] = 0
+            if true_positives[i] + false_negatives[i] > 0:
+                recall[i] = true_positives[i] / (true_positives[i] + false_negatives[i])
+            else:
+                recall[i] = 0
+        
+        macro_precision = np.mean(precision)
+        macro_recall = np.mean(recall)
+        total_tp = np.sum(true_positives)
+        total_fp = np.sum(false_positives)
+        total_fn = np.sum(false_negatives)
+        micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+        micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+        macro_f1 = 2 * (macro_precision * macro_recall) / (macro_precision + macro_recall) if (macro_precision + macro_recall) > 0 else 0
+        micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0
+        
+        print("\nManual Classification Metrics:")
+        print(f"Macro Precision: {macro_precision:.4f}")
+        print(f"Macro Recall: {macro_recall:.4f}")
+        print(f"Macro F1: {macro_f1:.4f}")
+        print(f"Micro Precision: {micro_precision:.4f}")
+        print(f"Micro Recall: {micro_recall:.4f}")
+        print(f"Micro F1: {micro_f1:.4f}")
+        
+        metrics = {
+            'classification_macro_precision': macro_precision,
+            'classification_macro_recall': macro_recall,
+            'classification_macro_f1': macro_f1,
+            'classification_micro_precision': micro_precision,
+            'classification_micro_recall': micro_recall,
+            'classification_micro_f1': micro_f1
+        }
+        
+        return metrics
+    
+    def calculate_segmentation_metrics(self):
+        """
+        Manually calculate precision and recall for the segmentation task
+        
+        Returns:
+            dict: Dictionary containing segmentation precision and recall metrics
+        """
+        if self.test_images is None or self.test_masks is None or self.model is None:
+            print("Test data or model not available")
+            return None
+    
+        predictions = self.model.predict(self.test_images)
+        segmentation_predictions = predictions['segmentation_output']
+        threshold = 0.5
+        predicted_masks = (segmentation_predictions > threshold).astype(np.float32)
+        true_masks = self.test_masks
+        total_true_positive = 0
+        total_false_positive = 0
+        total_false_negative = 0
+        
+        for i in range(len(predicted_masks)):
+            pred_mask = predicted_masks[i]
+            true_mask = true_masks[i]
+            true_positive = np.sum((pred_mask > 0) & (true_mask > 0))
+            false_positive = np.sum((pred_mask > 0) & (true_mask == 0))
+            false_negative = np.sum((pred_mask == 0) & (true_mask > 0))
+            total_true_positive += true_positive
+            total_false_positive += false_positive
+            total_false_negative += false_negative
+        
+        precision = total_true_positive / (total_true_positive + total_false_positive) if (total_true_positive + total_false_positive) > 0 else 0
+        recall = total_true_positive / (total_true_positive + total_false_negative) if (total_true_positive + total_false_negative) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        
+        print("\nSegmentation Metrics:")
+        print(f"Precision: {precision:.4f}")
+        print(f"Recall: {recall:.4f}")
+        print(f"F1 Score: {f1:.4f}")
+        
+        metrics = {
+            'segmentation_precision': precision,
+            'segmentation_recall': recall,
+            'segmentation_f1': f1,
+        }
+        
+        return metrics
+    
     def predict(self, image):
         """Make predictions for a single image"""
         if len(image.shape) == 3:

@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score
 from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
 from PIL import Image
+import scipy.io
 
 from src.flower_dataset import FlowerDataset
 from src.flower_cnn import FlowerCNN
@@ -117,6 +118,47 @@ def find_best_model():
     print(f"Best accuracy: {best_accuracy}")
 
 
+def get_similar_flowers(actual_label_idx, dataset_path="./data/102flowers/jpg"):
+    """
+    Find images from the test set with the same class as the actual label
+    
+    Args:
+        actual_label_idx: Index of the actual flower class
+        dataset_path: Path to the dataset directory
+        
+    Returns:
+        list: Paths to 3 similar flower images
+    """
+    try:
+        # Load test set indices
+        setid = scipy.io.loadmat("./utils/setid.mat")
+        test_indices = setid["tstid"].flatten() - 1  # MATLAB index starts from 1
+        
+        # Load all labels
+        labels = scipy.io.loadmat("./utils/imagelabels.mat")["labels"].flatten()
+        
+        # Find test images with the same label
+        similar_indices = []
+        for idx in test_indices:
+            if labels[idx] - 1 == actual_label_idx:  # labels are 1-indexed
+                similar_indices.append(idx)
+                if len(similar_indices) >= 3:
+                    break
+        
+        # Convert indices to file paths
+        similar_paths = []
+        for idx in similar_indices:
+            # Flower filenames are in format "image_#####.jpg" where ##### is the 1-indexed image number
+            file_idx = idx + 1  # Convert back to 1-indexed for filename
+            filename = f"image_{file_idx:05d}.jpg"
+            similar_paths.append(os.path.join(dataset_path, filename))
+            
+        return similar_paths
+    except Exception as e:
+        print(f"Error finding similar flowers: {str(e)}")
+        return []
+
+
 def classify_image(model, image_path):
     try:
         img = Image.open(image_path).convert("RGB")
@@ -131,7 +173,66 @@ def classify_image(model, image_path):
         confidence = predictions[0][class_idx] * 100
         flower_name = FLOWER_NAMES[class_idx]
         
-        return f"{flower_name} (Confidence: {confidence:.2f}%)"
+        result = f"{flower_name} (Confidence: {confidence:.2f}%)"
+        similar_paths = []
+        
+        if "/data/102flowers/jpg/" in image_path or "\\data\\102flowers\\jpg\\" in image_path:
+            try:
+                filename = os.path.basename(image_path)
+                img_idx = int(filename[6:11]) - 1
+                labels = scipy.io.loadmat("./utils/imagelabels.mat")["labels"].flatten()
+                
+                if 0 <= img_idx < len(labels):
+                    actual_label_idx = labels[img_idx] - 1
+                    actual_flower = FLOWER_NAMES[actual_label_idx]
+                    result = f"Predicted: {flower_name} (Confidence: {confidence:.2f}%)\nActual: {actual_flower}"
+                    
+                    similar_paths = get_similar_flowers(actual_label_idx)
+            except Exception as e:
+                print(f"Warning: Could not load actual label: {str(e)}")
+        
+        return result, similar_paths
+        
+    except Exception as e:
+        raise Exception(f"Error processing image: {str(e)}")
+
+
+def classify_image_siamese(model, image_path):
+    try:
+        img = Image.open(image_path).convert("RGB")
+        img = np.array(img)
+        img = tf.keras.preprocessing.image.img_to_array(
+            tf.image.resize(img, (224, 224))
+        )
+        img = np.expand_dims(img, axis=0) 
+        
+        predictions = model.predict(img)
+        classification = predictions['classification_output']
+        segmentation = predictions['segmentation_output']
+        
+        class_idx = np.argmax(classification[0])
+        confidence = classification[0][class_idx] * 100
+        flower_name = FLOWER_NAMES[class_idx]
+        
+        result = f"{flower_name} (Confidence: {confidence:.2f}%)"
+        similar_paths = []
+        
+        if "/data/102flowers/jpg/" in image_path or "\\data\\102flowers\\jpg\\" in image_path:
+            try:
+                filename = os.path.basename(image_path)
+                img_idx = int(filename[6:11]) - 1
+                labels = scipy.io.loadmat("./utils/imagelabels.mat")["labels"].flatten()
+                
+                if 0 <= img_idx < len(labels):
+                    actual_label_idx = labels[img_idx] - 1
+                    actual_flower = FLOWER_NAMES[actual_label_idx]
+                    result = f"Predicted: {flower_name} (Confidence: {confidence:.2f}%)\nActual: {actual_flower}"
+                    
+                    similar_paths = get_similar_flowers(actual_label_idx)
+            except Exception as e:
+                print(f"Warning: Could not load actual label: {str(e)}")
+        
+        return result, segmentation[0], similar_paths
         
     except Exception as e:
         raise Exception(f"Error processing image: {str(e)}")
@@ -151,7 +252,7 @@ def find_best_model_siamese():
     optimizers = ['adam']
     learning_rates = [0.001]
     dropout_rates = [0.5]
-    epochs_list = [1]
+    epochs_list = [50]
     batch_sizes = [16]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
     
@@ -230,17 +331,24 @@ def find_best_model_siamese():
     
     try:
         print("\nEvaluating the best model on test data...")
-        metrics = best_model.evaluate()      
+        metrics = best_model.evaluate()
+        
+        classification_metrics = best_model.calculate_classification_metrics()
+        segmentation_metrics = best_model.calculate_segmentation_metrics()
+        classification_precision = classification_metrics.get('classification_macro_precision', 0)
+        classification_recall = classification_metrics.get('classification_macro_recall', 0)
+        segmentation_precision = segmentation_metrics.get('segmentation_precision', 0)
+        segmentation_recall = segmentation_metrics.get('segmentation_recall', 0)
+
         os.makedirs("./data/models", exist_ok=True)
-        best_model.model.save("./data/models/best_siamese_model.keras")
-        print("Best siamese model saved to ./data/models/best_siamese_model.keras")  
+        model_name = f"best_siamese_model_cp{classification_precision:.4f}_cr{classification_recall:.4f}_sp{segmentation_precision:.4f}_sr{segmentation_recall:.4f}.keras"
+        best_model.model.save(f"./data/models/{model_name}")
+        print(f"Best siamese model saved to ./data/models/{model_name}")  
     except Exception as e:
         print(f"Error during evaluation: {str(e)}")
-    
-    return best_model
 
 
 if __name__ == "__main__":
-    # app = FlowerClassifierGUI(find_best_model, classify_image)
-    # app.run()
-    find_best_model_siamese()
+    app = FlowerClassifierGUI(find_best_model, classify_image, classify_image_siamese, find_best_model_siamese)
+    app.run()
+    #find_best_model_siamese()
