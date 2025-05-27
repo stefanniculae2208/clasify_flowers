@@ -75,7 +75,6 @@ def find_best_model():
     best_accuracy = 0
     best_params = {}
 
-    # Iterate through all combinations of chosen parameters
     for optimizer, learning_rate, dropout_rate, epochs, batch_size in param_combinations:
         print(f"Testing combination: optimizer={optimizer}, learning_rate={learning_rate}, "
             f"dropout_rate={dropout_rate}, epochs={epochs}, batch_size={batch_size}")
@@ -92,13 +91,11 @@ def find_best_model():
             verbose=1
         )
         
-        # Get validation accuracy for model selection
         val_predictions = model.predict(flower_cnn.validation_images, batch_size=batch_size, verbose=0)
         val_predictions = np.argmax(val_predictions, axis=1)
         avg_accuracy = accuracy_score(flower_cnn.validation_labels, val_predictions)
         print(f"Accuracy on validation data: {avg_accuracy}")
 
-        # Update the best accuracy and parameters
         if avg_accuracy > best_accuracy:
             best_accuracy = avg_accuracy
             best_params = {
@@ -130,26 +127,19 @@ def get_similar_flowers(actual_label_idx, dataset_path="./data/102flowers/jpg"):
         list: Paths to 3 similar flower images
     """
     try:
-        # Load test set indices
         setid = scipy.io.loadmat("./utils/setid.mat")
-        test_indices = setid["tstid"].flatten() - 1  # MATLAB index starts from 1
-        
-        # Load all labels
+        test_indices = setid["tstid"].flatten() - 1
         labels = scipy.io.loadmat("./utils/imagelabels.mat")["labels"].flatten()
-        
-        # Find test images with the same label
         similar_indices = []
         for idx in test_indices:
-            if labels[idx] - 1 == actual_label_idx:  # labels are 1-indexed
+            if labels[idx] - 1 == actual_label_idx:
                 similar_indices.append(idx)
                 if len(similar_indices) >= 3:
                     break
-        
-        # Convert indices to file paths
+
         similar_paths = []
         for idx in similar_indices:
-            # Flower filenames are in format "image_#####.jpg" where ##### is the 1-indexed image number
-            file_idx = idx + 1  # Convert back to 1-indexed for filename
+            file_idx = idx + 1
             filename = f"image_{file_idx:05d}.jpg"
             similar_paths.append(os.path.join(dataset_path, filename))
             
@@ -239,27 +229,48 @@ def classify_image_siamese(model, image_path):
 
 
 def find_best_model_siamese():
-    """
-    Find the best siamese model for both classification and segmentation
-    """
     print("Finding best siamese model for classification and segmentation...")
     input_shape = (224, 224, 3)
-    segmentation_dir = "/home/stefan/Documents/clasify_flowers/utils/segmim/"
+    segmentation_dir = "./utils/segmim/"
     dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape, segmentation_dir)
     dataset.load_data()
     dataset.summary()
+
+    # optimizers = ['adam', 'sgd', 'rmsprop', 'adamax', 'nadam']
+    # learning_rates = [0.0001, 0.001, 0.01]
+    # dropout_rates = [0.3, 0.5, 0.7]
+    # epochs_list = [5, 10, 20]
+    # batch_sizes = [16, 32, 64]
     
     optimizers = ['adam']
     learning_rates = [0.001]
     dropout_rates = [0.5]
-    epochs_list = [50]
+    epochs_list = [10]
     batch_sizes = [16]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
     
+    class CombinedMetricCallback(tf.keras.callbacks.Callback):
+        def __init__(self, classification_weight=0.5, segmentation_weight=0.5):
+            super().__init__()
+            self.classification_weight = classification_weight
+            self.segmentation_weight = segmentation_weight
+            
+        def on_epoch_end(self, epoch, logs=None):
+            if logs is None:
+                logs = {}
+            val_classification_acc = logs.get('val_classification_output_accuracy', 0)
+            val_segmentation_iou = logs.get('val_segmentation_output_iou', 0)
+            combined = (self.classification_weight * val_classification_acc + 
+                       self.segmentation_weight * val_segmentation_iou)
+            logs['val_combined_metric'] = combined
+            print(f"\nEpoch {epoch+1}: val_combined_metric = {combined:.4f}")
+    
+    combined_metric_callback = CombinedMetricCallback()
     early_stopping = EarlyStopping(
-        monitor='val_loss',
-        patience=3,
-        restore_best_weights=True
+        monitor='val_combined_metric',
+        patience=5,
+        restore_best_weights=True,
+        mode='max'
     )
     
     best_combined_metric = 0
@@ -295,7 +306,7 @@ def find_best_model_siamese():
                     siamese_model.validation_images,
                     validation_outputs
                 ) if siamese_model.validation_images is not None else None,
-                callbacks=[early_stopping]
+                callbacks=[combined_metric_callback, early_stopping]
             )
             val_classification_acc = max(history.history['val_classification_output_accuracy']) if 'val_classification_output_accuracy' in history.history else 0
             val_segmentation_iou = max(history.history['val_segmentation_output_iou']) if 'val_segmentation_output_iou' in history.history else 0
