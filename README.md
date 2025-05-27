@@ -1,8 +1,8 @@
 # clasify_flowers
 
-Download images from: https://www.robots.ox.ac.uk/~vgg/data/flowers/102/index.html
+Download images from: https://www.robots.ox.ac.uk/~vgg/data/flowers/102/index.html and extract to ./data/102flowers/jpg
+Download the segmentation files and extract to ./utils/segmim/
 
-Extract to ./data/
 
 APP:
 

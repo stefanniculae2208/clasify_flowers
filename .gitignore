@@ -180,6 +180,7 @@ cython_debug/
 data/*
 utils/*.dat
 *.keras
+utils/segmim/
 
 # Docker
 docker-compose.override.yml
