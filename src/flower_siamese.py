@@ -57,7 +57,6 @@ class FlowerSiamese:
                 base_model.output                                      # 4x4
             ]
         else:
-            # Custom CNN architecture for training from scratch
             inputs = keras.Input(shape=self.input_shape)
             x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(inputs)
             skip1 = x
@@ -96,7 +95,7 @@ class FlowerSiamese:
         ], name='classification_output')
         
         # Create segmentation branch (U-Net decoder)
-        def create_segmentation_branch(bottleneck, skip1, skip2, skip3, skip4):
+        def create_segmentation_branch(bottleneck, skip1, skip2, skip3, skip4, use_pre_trained=True):
             x = layers.Conv2DTranspose(512, (3, 3), strides=(2, 2), padding='same')(bottleneck)
             x = layers.Concatenate()([x, skip4])
             x = layers.Conv2D(512, (3, 3), padding='same', activation='relu')(x)
@@ -117,6 +116,12 @@ class FlowerSiamese:
             x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(x)
             x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(x)
             
+            # We need an extra upsampling step for the pre-trained model
+            if use_pre_trained:
+                x = layers.Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same')(x)
+                x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(x)
+                x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(x)
+            
             # Output layer for segmentation - binary mask
             x = layers.Conv2D(1, (1, 1), padding='same', activation='sigmoid', name='segmentation_output')(x)
             return x
@@ -128,7 +133,7 @@ class FlowerSiamese:
         bottleneck = encoder_features[4]
         skip1, skip2, skip3, skip4 = encoder_features[0], encoder_features[1], encoder_features[2], encoder_features[3]
         classification_features = classification_branch(bottleneck)
-        segmentation_output = create_segmentation_branch(bottleneck, skip1, skip2, skip3, skip4)
+        segmentation_output = create_segmentation_branch(bottleneck, skip1, skip2, skip3, skip4, use_pre_trained_model)
         model = keras.Model(
             inputs=inputs, 
             outputs={
