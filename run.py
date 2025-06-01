@@ -76,6 +76,9 @@ def find_best_model(use_pre_trained_model=True):
     best_accuracy = 0
     best_params = {}
 
+    with open("data/last_run_log.txt", "w") as f:
+        pass
+
     for optimizer, learning_rate, dropout_rate, epochs, batch_size in param_combinations:
         print(f"Testing combination: optimizer={optimizer}, learning_rate={learning_rate}, "
             f"dropout_rate={dropout_rate}, epochs={epochs}, batch_size={batch_size}")
@@ -96,6 +99,9 @@ def find_best_model(use_pre_trained_model=True):
         val_predictions = np.argmax(val_predictions, axis=1)
         avg_accuracy = accuracy_score(flower_cnn.validation_labels, val_predictions)
         print(f"Accuracy on validation data: {avg_accuracy}")
+
+        with open("data/last_run_log.txt", "a") as f:
+            f.write(f"Optimizer: {optimizer}, Learning Rate: {learning_rate}, Dropout Rate: {dropout_rate}, Epochs: {epochs}, Batch Size: {batch_size}, Validation Accuracy: {avg_accuracy}\n")
 
         if avg_accuracy > best_accuracy:
             best_accuracy = avg_accuracy
@@ -277,6 +283,9 @@ def find_best_model_siamese(use_pre_trained_model=True):
     best_combined_metric = 0
     best_params = {}
     best_model = None
+
+    with open("data/last_run_log.txt", "w") as f:
+        pass
     
     for optimizer, learning_rate, dropout_rate, epochs, batch_size in param_combinations:
         print(f"\nTraining with: optimizer={optimizer}, learning_rate={learning_rate}, "
@@ -316,6 +325,10 @@ def find_best_model_siamese(use_pre_trained_model=True):
             print(f"Validation classification accuracy: {val_classification_acc:.4f}")
             print(f"Validation segmentation IoU: {val_segmentation_iou:.4f}")
             print(f"Combined metric: {combined_metric:.4f}")
+
+            with open("data/last_run_log.txt", "a") as f:
+                f.write(f"Optimizer: {optimizer}, Learning Rate: {learning_rate}, Dropout Rate: {dropout_rate}, Epochs: {epochs}, Batch Size: {batch_size}, Validation Classification Accuracy: {val_classification_acc:.4f}, Validation Segmentation IoU: {val_segmentation_iou:.4f}, Combined Metric: {combined_metric:.4f}\n")
+
             if combined_metric > best_combined_metric:
                 best_combined_metric = combined_metric
                 best_params = {
