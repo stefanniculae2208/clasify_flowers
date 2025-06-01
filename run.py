@@ -41,7 +41,8 @@ FLOWER_NAMES = [
 ]
 
 
-def find_best_model():
+def find_best_model(use_pre_trained_model=True):
+    print(f"Finding best model with use_pre_trained_model={use_pre_trained_model}")
     input_shape=(224, 224, 3)
     segmentation_dir="/home/stefan/Documents/clasify_flowers/utils/segmim/"
     dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape, segmentation_dir)
@@ -79,7 +80,7 @@ def find_best_model():
         print(f"Testing combination: optimizer={optimizer}, learning_rate={learning_rate}, "
             f"dropout_rate={dropout_rate}, epochs={epochs}, batch_size={batch_size}")
 
-        model = flower_cnn.create_model(optimizer=optimizer, dropout_rate=dropout_rate, learning_rate=learning_rate)
+        model = flower_cnn.create_model(optimizer=optimizer, dropout_rate=dropout_rate, learning_rate=learning_rate, use_pre_trained_model=use_pre_trained_model)
 
         model.fit(
             flower_cnn.train_images, 
@@ -228,8 +229,8 @@ def classify_image_siamese(model, image_path):
         raise Exception(f"Error processing image: {str(e)}")
 
 
-def find_best_model_siamese():
-    print("Finding best siamese model for classification and segmentation...")
+def find_best_model_siamese(use_pre_trained_model=True):
+    print(f"Finding best siamese model for classification and segmentation with use_pre_trained_model={use_pre_trained_model}")
     input_shape = (224, 224, 3)
     segmentation_dir = "./utils/segmim/"
     dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape, segmentation_dir)
@@ -245,7 +246,7 @@ def find_best_model_siamese():
     optimizers = ['adam']
     learning_rates = [0.001]
     dropout_rates = [0.5]
-    epochs_list = [10]
+    epochs_list = [1]
     batch_sizes = [16]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
     
@@ -282,7 +283,7 @@ def find_best_model_siamese():
               f"dropout_rate={dropout_rate}, epochs={epochs}, batch_size={batch_size}")
         
         siamese_model = FlowerSiamese(input_shape=input_shape)
-        model = siamese_model.create_model(optimizer=optimizer, dropout_rate=dropout_rate, learning_rate=learning_rate)
+        model = siamese_model.create_model(optimizer=optimizer, dropout_rate=dropout_rate, learning_rate=learning_rate, use_pre_trained_model=use_pre_trained_model)
         model.summary()
         siamese_model.set_training_data(dataset.train_images_memmap, dataset.train_labels, dataset.train_masks_memmap)
         siamese_model.set_validation_data(dataset.validation_images_memmap, dataset.validation_labels, dataset.validation_masks_memmap)

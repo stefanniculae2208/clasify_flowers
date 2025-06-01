@@ -20,7 +20,7 @@ class FlowerSiamese:
         self.test_labels = None
         self.test_masks = None
     
-    def create_model(self, optimizer='adam', dropout_rate=0.5, learning_rate=0.001):
+    def create_model(self, optimizer='adam', dropout_rate=0.5, learning_rate=0.001, use_pre_trained_model=True):
         """
         Create a siamese model with shared encoder for both classification and segmentation
         """
@@ -42,15 +42,45 @@ class FlowerSiamese:
             layers.RandomContrast(0.2)
         ])
         
-        base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=self.input_shape)
-        base_model.trainable = False  
-        encoder_outputs = [
-            base_model.get_layer('block_1_expand_relu').output,    # 64x64
-            base_model.get_layer('block_3_expand_relu').output,    # 32x32
-            base_model.get_layer('block_6_expand_relu').output,    # 16x16
-            base_model.get_layer('block_13_expand_relu').output,   # 8x8
-            base_model.output                                      # 4x4
-        ]
+        base_model = None
+        encoder_outputs = None
+        
+        if use_pre_trained_model:
+            base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=self.input_shape)
+            base_model.trainable = False  
+            
+            encoder_outputs = [
+                base_model.get_layer('block_1_expand_relu').output,    # 64x64
+                base_model.get_layer('block_3_expand_relu').output,    # 32x32
+                base_model.get_layer('block_6_expand_relu').output,    # 16x16
+                base_model.get_layer('block_13_expand_relu').output,   # 8x8
+                base_model.output                                      # 4x4
+            ]
+        else:
+            # Custom CNN architecture for training from scratch
+            inputs = keras.Input(shape=self.input_shape)
+            x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(inputs)
+            skip1 = x
+            x = layers.MaxPooling2D((2, 2))(x)
+            
+            x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(x)
+            skip2 = x
+            x = layers.MaxPooling2D((2, 2))(x)
+            
+            x = layers.Conv2D(128, (3, 3), padding='same', activation='relu')(x)
+            skip3 = x
+            x = layers.MaxPooling2D((2, 2))(x)
+            
+            x = layers.Conv2D(256, (3, 3), padding='same', activation='relu')(x)
+            skip4 = x
+            x = layers.MaxPooling2D((2, 2))(x)
+            
+            x = layers.Conv2D(512, (3, 3), padding='same', activation='relu')(x)
+            bottleneck = x
+            
+            base_model = keras.Model(inputs=inputs, outputs=bottleneck)
+            encoder_outputs = [skip1, skip2, skip3, skip4, bottleneck]
+        
         encoder_model = keras.Model(inputs=base_model.input, outputs=encoder_outputs)
         
         classification_branch = keras.Sequential([
@@ -66,36 +96,26 @@ class FlowerSiamese:
         ], name='classification_output')
         
         # Create segmentation branch (U-Net decoder)
-        # This needs to be defined as a function to handle multiple inputs
         def create_segmentation_branch(bottleneck, skip1, skip2, skip3, skip4):
-            # First upsampling block
             x = layers.Conv2DTranspose(512, (3, 3), strides=(2, 2), padding='same')(bottleneck)
             x = layers.Concatenate()([x, skip4])
             x = layers.Conv2D(512, (3, 3), padding='same', activation='relu')(x)
             x = layers.Conv2D(512, (3, 3), padding='same', activation='relu')(x)
             
-            # Second upsampling block
             x = layers.Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same')(x)
             x = layers.Concatenate()([x, skip3])
             x = layers.Conv2D(256, (3, 3), padding='same', activation='relu')(x)
             x = layers.Conv2D(256, (3, 3), padding='same', activation='relu')(x)
             
-            # Third upsampling block
             x = layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same')(x)
             x = layers.Concatenate()([x, skip2])
             x = layers.Conv2D(128, (3, 3), padding='same', activation='relu')(x)
             x = layers.Conv2D(128, (3, 3), padding='same', activation='relu')(x)
             
-            # Fourth upsampling block
             x = layers.Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same')(x)
             x = layers.Concatenate()([x, skip1])
             x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(x)
             x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(x)
-            
-            # Final upsampling to original image size
-            x = layers.Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same')(x)
-            x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(x)
-            x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(x)
             
             # Output layer for segmentation - binary mask
             x = layers.Conv2D(1, (1, 1), padding='same', activation='sigmoid', name='segmentation_output')(x)

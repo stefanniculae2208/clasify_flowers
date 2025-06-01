@@ -20,32 +20,40 @@ class FlowerClassifierGUI:
         self.photo_image = None
         self.segmentation_photo = None  
         self.similar_photos = []  
+        self.use_pretrained = tk.BooleanVar(value=True)
         self.setup_gui()
 
     def setup_gui(self):
         self.frame = ttk.Frame(self.root, padding="20")
         self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        find_model_btn = ttk.Button(self.frame, text="Find Best Model", command=self.find_best_model_fn)
+        find_model_btn = ttk.Button(self.frame, text="Find Best Model", command=self.find_best_model)
         find_model_btn.grid(row=0, column=0, pady=10, padx=10, sticky=tk.EW)
         
-        find_siamese_btn = ttk.Button(self.frame, text="Find Best Siamese Model", command=self.find_best_siamese_model_fn)
+        find_siamese_btn = ttk.Button(self.frame, text="Find Best Siamese Model", command=self.find_best_siamese_model)
         find_siamese_btn.grid(row=1, column=0, pady=10, padx=10, sticky=tk.EW)
         
+        pretrained_check = ttk.Checkbutton(
+            self.frame, 
+            text="Use pre-trained model", 
+            variable=self.use_pretrained
+        )
+        pretrained_check.grid(row=2, column=0, pady=5, padx=10, sticky=tk.W)
+        
         load_model_btn = ttk.Button(self.frame, text="Load Classification Model", command=self.load_model)
-        load_model_btn.grid(row=2, column=0, pady=10, padx=10, sticky=tk.EW)
+        load_model_btn.grid(row=3, column=0, pady=10, padx=10, sticky=tk.EW)
         
         load_siamese_btn = ttk.Button(self.frame, text="Load Siamese Model", command=self.load_siamese_model)
-        load_siamese_btn.grid(row=3, column=0, pady=10, padx=10, sticky=tk.EW)
+        load_siamese_btn.grid(row=4, column=0, pady=10, padx=10, sticky=tk.EW)
         
         self.classify_btn = ttk.Button(self.frame, text="Classify Image", command=self.classify_image, state="disabled")
-        self.classify_btn.grid(row=4, column=0, pady=10, padx=10, sticky=tk.EW)
+        self.classify_btn.grid(row=5, column=0, pady=10, padx=10, sticky=tk.EW)
         
         self.model_label = ttk.Label(self.frame, text="No model loaded", wraplength=350)
-        self.model_label.grid(row=5, column=0, pady=10, padx=10)
+        self.model_label.grid(row=6, column=0, pady=10, padx=10)
         
         image_container = ttk.Frame(self.frame)
-        image_container.grid(row=6, column=0, pady=10, padx=10, sticky=tk.NSEW)
+        image_container.grid(row=7, column=0, pady=10, padx=10, sticky=tk.NSEW)
         image_container.columnconfigure(0, weight=1)
         image_container.columnconfigure(1, weight=1)
         
@@ -60,7 +68,7 @@ class FlowerClassifierGUI:
         self.segmentation_label.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
         
         similar_container = ttk.Frame(self.frame)
-        similar_container.grid(row=7, column=0, pady=10, padx=10, sticky=tk.EW)
+        similar_container.grid(row=8, column=0, pady=10, padx=10, sticky=tk.EW)
         
         similar_title = ttk.Label(similar_container, text="Similar Flowers (Same Class):", font=("Arial", 10, "bold"))
         similar_title.pack(pady=(5, 10), anchor=tk.W)
@@ -78,10 +86,10 @@ class FlowerClassifierGUI:
             self.similar_labels.append(label)
         
         self.result_label = ttk.Label(self.frame, text="", wraplength=350)
-        self.result_label.grid(row=8, column=0, pady=10, padx=10)
+        self.result_label.grid(row=9, column=0, pady=10, padx=10)
         
         self.frame.columnconfigure(0, weight=1)
-        self.frame.rowconfigure(6, weight=1)
+        self.frame.rowconfigure(7, weight=1)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
@@ -275,3 +283,19 @@ class FlowerClassifierGUI:
 
     def run(self):
         self.root.mainloop()
+
+    def find_best_model(self):
+        """Wrapper to call find_best_model_fn with the use_pretrained parameter"""
+        try:
+            if self.find_best_model_fn:
+                self.find_best_model_fn(use_pre_trained_model=self.use_pretrained.get())
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to find best model: {str(e)}")
+            
+    def find_best_siamese_model(self):
+        """Wrapper to call find_best_siamese_model_fn with the use_pretrained parameter"""
+        try:
+            if self.find_best_siamese_model_fn:
+                self.find_best_siamese_model_fn(use_pre_trained_model=self.use_pretrained.get())
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to find best siamese model: {str(e)}")

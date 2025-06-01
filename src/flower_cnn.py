@@ -18,23 +18,23 @@ class FlowerCNN:
         self.model = []
 
     
-    def create_model(self, optimizer='adam', dropout_rate=0.5, learning_rate=0.001):
+    def create_model(self, optimizer='adam', dropout_rate=0.5, learning_rate=0.001, use_pre_trained_model=True):
 
-        def bilinear_pooling(x):
-            # x shape: [batch, height, width, channels]
-            shape = tf.shape(x)
-            batch_size, height, width, channels = shape[0], shape[1], shape[2], shape[3]
-            # Reshape to [batch, height*width, channels]
-            x = tf.reshape(x, [batch_size, height * width, channels])
-            # Compute the bilinear pooling (outer product) per sample
-            phi_I = tf.matmul(x, x, transpose_a=True) / tf.cast(height * width, tf.float32)
-            # Flatten the bilinear feature matrix into a vector
-            phi_I = tf.reshape(phi_I, [batch_size, channels * channels])
-            # Apply signed square-root
-            y = tf.sign(phi_I) * tf.sqrt(tf.abs(phi_I) + 1e-12)
-            # L2 normalization
-            y = tf.nn.l2_normalize(y, axis=-1)
-            return y
+        # def bilinear_pooling(x):
+        #     # x shape: [batch, height, width, channels]
+        #     shape = tf.shape(x)
+        #     batch_size, height, width, channels = shape[0], shape[1], shape[2], shape[3]
+        #     # Reshape to [batch, height*width, channels]
+        #     x = tf.reshape(x, [batch_size, height * width, channels])
+        #     # Compute the bilinear pooling (outer product) per sample
+        #     phi_I = tf.matmul(x, x, transpose_a=True) / tf.cast(height * width, tf.float32)
+        #     # Flatten the bilinear feature matrix into a vector
+        #     phi_I = tf.reshape(phi_I, [batch_size, channels * channels])
+        #     # Apply signed square-root
+        #     y = tf.sign(phi_I) * tf.sqrt(tf.abs(phi_I) + 1e-12)
+        #     # L2 normalization
+        #     y = tf.nn.l2_normalize(y, axis=-1)
+        #     return y
         
 
         if optimizer == 'adam':
@@ -68,40 +68,40 @@ class FlowerCNN:
         #     layers.RandomTranslation(0.1, 0.1),
         # ])
 
-        # model = keras.Sequential([
-        #     keras.Input(shape=self.input_shape),
-        #     layers.Rescaling(1./255),
-        #     data_augmentation,
-        #     layers.Conv2D(32, (3, 3), activation='relu'),
-        #     layers.MaxPooling2D((2, 2)),
-        #     layers.BatchNormalization(),
-        #     layers.Conv2D(64, (3, 3), activation='relu'),
-        #     layers.MaxPooling2D((2, 2)),
-        #     layers.BatchNormalization(),
-        #     layers.Conv2D(128, (3, 3), activation='relu'),
-        #     layers.MaxPooling2D((2, 2)),
-        #     layers.BatchNormalization(),
-        #     layers.Flatten(),
-        #     layers.Dense(128, 
-        #               activation='relu',
-        #               kernel_regularizer=keras.regularizers.l2(0.01),  
-        #               bias_regularizer=keras.regularizers.l2(0.01)),
-        #     layers.BatchNormalization(),
-        #     layers.Dropout(dropout_rate),
-        #     layers.Dense(102, activation='softmax')
-        # ])
-
-        base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=self.input_shape)
-        base_model.trainable = False  # Freeze the base model layers
+        base_model = None
+        if use_pre_trained_model:
+            base_model = keras.Sequential([
+                MobileNetV2(weights='imagenet', include_top=False, input_shape=self.input_shape, trainable=False),
+                layers.GlobalAveragePooling2D()
+            ])
+        else:
+            # Custom CNN architecture for training from scratch
+            base_model = keras.Sequential([
+                layers.Conv2D(32, (3, 3), padding='same', activation='relu'),
+                layers.MaxPooling2D((2, 2)),
+                layers.BatchNormalization(),
+                
+                layers.Conv2D(64, (3, 3), padding='same', activation='relu'),
+                layers.MaxPooling2D((2, 2)),
+                layers.BatchNormalization(),
+                
+                layers.Conv2D(128, (3, 3), padding='same', activation='relu'),
+                layers.MaxPooling2D((2, 2)),
+                layers.BatchNormalization(),
+                
+                layers.Conv2D(256, (3, 3), padding='same', activation='relu'),
+                layers.MaxPooling2D((2, 2)),
+                layers.BatchNormalization(),
+                
+                layers.Flatten()
+            ])
 
         model = models.Sequential([
             keras.Input(shape=self.input_shape),
             layers.Rescaling(1./255),
             data_augmentation,
-            base_model, 
-            layers.GlobalAveragePooling2D(),
+            base_model,
             layers.BatchNormalization(),
-            # layers.Lambda(bilinear_pooling), 
             layers.Dense(128, 
                       activation='relu',
                       kernel_regularizer=keras.regularizers.l2(0.01),  
