@@ -113,3 +113,82 @@ class FlowerCNN:
         loss, accuracy = self.model.evaluate(self.test_images, self.test_labels)
         print(f"Test Accuracy: {accuracy * 100}%")
         return accuracy
+        
+        
+    def calculate_classification_metrics(self, use_validation=False):
+        """
+        Manually calculate precision and recall for the classification task
+        
+        Args:
+            use_validation (bool): Whether to use validation data instead of test data
+            
+        Returns:
+            dict: Dictionary containing precision and recall metrics
+        """
+        if use_validation:
+            if self.validation_images is None or self.validation_labels is None or self.model is None:
+                print("Validation data or model not available")
+                return None
+            images = self.validation_images
+            true_classes = self.validation_labels
+        else:
+            if self.test_images is None or self.test_labels is None or self.model is None:
+                print("Test data or model not available")
+                return None
+            images = self.test_images
+            true_classes = self.test_labels
+            
+        predictions = self.model.predict(images)
+        predicted_classes = np.argmax(predictions, axis=1)
+        num_classes = 102  # Number of flower classes
+        true_positives = np.zeros(num_classes)
+        false_positives = np.zeros(num_classes)
+        false_negatives = np.zeros(num_classes)
+        
+        for i in range(num_classes):
+            true_positives[i] = np.sum((predicted_classes == i) & (true_classes == i))
+            false_positives[i] = np.sum((predicted_classes == i) & (true_classes != i))
+            false_negatives[i] = np.sum((predicted_classes != i) & (true_classes == i))
+
+        precision = np.zeros(num_classes)
+        recall = np.zeros(num_classes)
+        
+        for i in range(num_classes):
+            if true_positives[i] + false_positives[i] > 0:
+                precision[i] = true_positives[i] / (true_positives[i] + false_positives[i])
+            else:
+                precision[i] = 0
+            if true_positives[i] + false_negatives[i] > 0:
+                recall[i] = true_positives[i] / (true_positives[i] + false_negatives[i])
+            else:
+                recall[i] = 0
+        
+        macro_precision = np.mean(precision)
+        macro_recall = np.mean(recall)
+        total_tp = np.sum(true_positives)
+        total_fp = np.sum(false_positives)
+        total_fn = np.sum(false_negatives)
+        micro_precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+        micro_recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+        macro_f1 = 2 * (macro_precision * macro_recall) / (macro_precision + macro_recall) if (macro_precision + macro_recall) > 0 else 0
+        micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0
+        
+        dataset_type = "Validation" if use_validation else "Test"
+        print(f"\nManual {dataset_type} Classification Metrics:")
+        print(f"Macro Precision: {macro_precision:.4f}")
+        print(f"Macro Recall: {macro_recall:.4f}")
+        print(f"Macro F1: {macro_f1:.4f}")
+        print(f"Micro Precision: {micro_precision:.4f}")
+        print(f"Micro Recall: {micro_recall:.4f}")
+        print(f"Micro F1: {micro_f1:.4f}")
+        
+        metrics = {
+            'classification_macro_precision': macro_precision,
+            'classification_macro_recall': macro_recall,
+            'classification_macro_f1': macro_f1,
+            'classification_micro_precision': micro_precision,
+            'classification_micro_recall': micro_recall,
+            'classification_micro_f1': micro_f1
+        }
+        
+        return metrics

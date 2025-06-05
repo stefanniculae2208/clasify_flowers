@@ -224,21 +224,31 @@ class FlowerSiamese:
             print(f"{name}: {value}")     
         return results
     
-    def calculate_classification_metrics(self):
+    def calculate_classification_metrics(self, use_validation=False):
         """
         Manually calculate precision and recall for the classification task
+        
+        Args:
+            use_validation (bool): Whether to use validation data instead of test data
         
         Returns:
             dict: Dictionary containing precision and recall metrics
         """
-        if self.test_images is None or self.test_labels is None or self.model is None:
-            print("Test data or model not available")
-            return None
-            
-        predictions = self.model.predict(self.test_images)
+        if use_validation:
+            if self.validation_images is None or self.validation_labels is None or self.model is None:
+                print("Validation data or model not available")
+                return None
+        else:
+            if self.test_images is None or self.test_labels is None or self.model is None:
+                print("Test data or model not available")
+                return None
+        
+        images = self.validation_images if use_validation else self.test_images
+        true_classes = self.validation_labels if use_validation else self.test_labels
+
+        predictions = self.model.predict(images)
         classification_predictions = predictions['classification_output']
         predicted_classes = np.argmax(classification_predictions, axis=1)
-        true_classes = self.test_labels
         num_classes = self.num_classes
         true_positives = np.zeros(num_classes)
         false_positives = np.zeros(num_classes)
@@ -272,7 +282,8 @@ class FlowerSiamese:
         macro_f1 = 2 * (macro_precision * macro_recall) / (macro_precision + macro_recall) if (macro_precision + macro_recall) > 0 else 0
         micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall) if (micro_precision + micro_recall) > 0 else 0
         
-        print("\nManual Classification Metrics:")
+        dataset_type = "Validation" if use_validation else "Test"
+        print(f"\nManual {dataset_type} Classification Metrics:")
         print(f"Macro Precision: {macro_precision:.4f}")
         print(f"Macro Recall: {macro_recall:.4f}")
         print(f"Macro F1: {macro_f1:.4f}")
@@ -291,22 +302,33 @@ class FlowerSiamese:
         
         return metrics
     
-    def calculate_segmentation_metrics(self):
+    def calculate_segmentation_metrics(self, use_validation=False):
         """
         Manually calculate precision and recall for the segmentation task
+        
+        Args:
+            use_validation (bool): Whether to use validation data instead of test data
         
         Returns:
             dict: Dictionary containing segmentation precision and recall metrics
         """
-        if self.test_images is None or self.test_masks is None or self.model is None:
-            print("Test data or model not available")
-            return None
-    
-        predictions = self.model.predict(self.test_images)
+        if use_validation:
+            if self.validation_images is None or self.validation_masks is None or self.model is None:
+                print("Validation data or model not available")
+                return None
+        else:
+            if self.test_images is None or self.test_masks is None or self.model is None:
+                print("Test data or model not available")
+                return None
+            
+        images = self.validation_images if use_validation else self.test_images
+        masks = self.validation_masks if use_validation else self.test_masks
+
+        predictions = self.model.predict(images)
         segmentation_predictions = predictions['segmentation_output']
         threshold = 0.5
         predicted_masks = (segmentation_predictions > threshold).astype(np.float32)
-        true_masks = self.test_masks
+        true_masks = masks
         total_true_positive = 0
         total_false_positive = 0
         total_false_negative = 0
@@ -325,7 +347,8 @@ class FlowerSiamese:
         recall = total_true_positive / (total_true_positive + total_false_negative) if (total_true_positive + total_false_negative) > 0 else 0
         f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
         
-        print("\nSegmentation Metrics:")
+        dataset_type = "Validation" if use_validation else "Test"
+        print(f"\n{dataset_type} Segmentation Metrics:")
         print(f"Precision: {precision:.4f}")
         print(f"Recall: {recall:.4f}")
         print(f"F1 Score: {f1:.4f}")

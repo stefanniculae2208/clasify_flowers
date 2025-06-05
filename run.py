@@ -99,9 +99,20 @@ def find_best_model(use_pre_trained_model=True):
         val_predictions = np.argmax(val_predictions, axis=1)
         avg_accuracy = accuracy_score(flower_cnn.validation_labels, val_predictions)
         print(f"Accuracy on validation data: {avg_accuracy}")
+        
+        # Calculate validation precision and recall metrics
+        flower_cnn.model = model
+        classification_metrics = flower_cnn.calculate_classification_metrics(use_validation=True)
+        val_classification_precision = classification_metrics.get('classification_macro_precision', 0)
+        val_classification_recall = classification_metrics.get('classification_macro_recall', 0)
+        val_classification_f1 = classification_metrics.get('classification_macro_f1', 0)
 
         with open("data/last_run_log.txt", "a") as f:
-            f.write(f"Optimizer: {optimizer}, Learning Rate: {learning_rate}, Dropout Rate: {dropout_rate}, Epochs: {epochs}, Batch Size: {batch_size}, Validation Accuracy: {avg_accuracy}\n")
+            f.write(f"Optimizer: {optimizer}, Learning Rate: {learning_rate}, Dropout Rate: {dropout_rate}, "
+                  f"Epochs: {epochs}, Batch Size: {batch_size}, Validation Accuracy: {avg_accuracy:.4f}, "
+                  f"Validation Classification Precision: {val_classification_precision:.4f}, "
+                  f"Validation Classification Recall: {val_classification_recall:.4f}, "
+                  f"Validation Classification F1: {val_classification_f1:.4f}\n")
 
         if avg_accuracy > best_accuracy:
             best_accuracy = avg_accuracy
@@ -110,14 +121,28 @@ def find_best_model(use_pre_trained_model=True):
                 'learning_rate': learning_rate,
                 'dropout_rate': dropout_rate,
                 'epochs': epochs,
-                'batch_size': batch_size
+                'batch_size': batch_size,
+                'val_classification_precision': val_classification_precision,
+                'val_classification_recall': val_classification_recall,
+                'val_classification_f1': val_classification_f1
             }
             flower_cnn.model = model
 
-    flower_cnn.evaluate()
+    test_accuracy = flower_cnn.evaluate()
+    
+    classification_metrics = flower_cnn.calculate_classification_metrics(use_validation=False)
+    test_classification_precision = classification_metrics.get('classification_macro_precision', 0)
+    test_classification_recall = classification_metrics.get('classification_macro_recall', 0)
+    test_classification_f1 = classification_metrics.get('classification_macro_f1', 0)
+    
+    print(f"\nTest Classification Metrics:")
+    print(f"Accuracy: {test_accuracy:.4f}")
+    print(f"Precision: {test_classification_precision:.4f}")
+    print(f"Recall: {test_classification_recall:.4f}")
+    print(f"F1 Score: {test_classification_f1:.4f}")
 
-    flower_cnn.model.save(f"data/models/best_model_{best_accuracy*100}%.keras")
-    print(f"Model saved as 'data/models/best_model_{best_accuracy*100}%.keras'")
+    flower_cnn.model.save(f"data/models/best_model_{best_accuracy*100}%_{test_classification_precision:.4f}_{test_classification_recall:.4f}.keras")
+    print(f"Model saved as 'data/models/best_model_{best_accuracy*100}%_{test_classification_precision:.4f}_{test_classification_recall:.4f}.keras'")
     print(f"Best parameters: {best_params}")
     print(f"Best accuracy: {best_accuracy}")
 
@@ -252,7 +277,7 @@ def find_best_model_siamese(use_pre_trained_model=True):
     optimizers = ['adam']
     learning_rates = [0.001]
     dropout_rates = [0.5]
-    epochs_list = [1]
+    epochs_list = [5]
     batch_sizes = [16]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
     
@@ -321,14 +346,25 @@ def find_best_model_siamese(use_pre_trained_model=True):
             val_classification_acc = max(history.history['val_classification_output_accuracy']) if 'val_classification_output_accuracy' in history.history else 0
             val_segmentation_iou = max(history.history['val_segmentation_output_iou']) if 'val_segmentation_output_iou' in history.history else 0
             combined_metric = (0.5 * val_classification_acc + 0.5 * val_segmentation_iou)
-            
-            print(f"Validation classification accuracy: {val_classification_acc:.4f}")
-            print(f"Validation segmentation IoU: {val_segmentation_iou:.4f}")
-            print(f"Combined metric: {combined_metric:.4f}")
+
+            classification_metrics = siamese_model.calculate_classification_metrics(use_validation=True)
+            segmentation_metrics = siamese_model.calculate_segmentation_metrics(use_validation=True)
+            val_classification_precision = classification_metrics.get('classification_macro_precision', 0)
+            val_classification_recall = classification_metrics.get('classification_macro_recall', 0)
+            val_segmentation_precision = segmentation_metrics.get('segmentation_precision', 0)
+            val_segmentation_recall = segmentation_metrics.get('segmentation_recall', 0)
 
             with open("data/last_run_log.txt", "a") as f:
-                f.write(f"Optimizer: {optimizer}, Learning Rate: {learning_rate}, Dropout Rate: {dropout_rate}, Epochs: {epochs}, Batch Size: {batch_size}, Validation Classification Accuracy: {val_classification_acc:.4f}, Validation Segmentation IoU: {val_segmentation_iou:.4f}, Combined Metric: {combined_metric:.4f}\n")
-
+                f.write(f"Optimizer: {optimizer}, Learning Rate: {learning_rate}, Dropout Rate: {dropout_rate}, "
+                    f"Epochs: {epochs}, Batch Size: {batch_size}, "
+                    f"Validation Classification Accuracy: {val_classification_acc:.4f}, "
+                    f"Validation Segmentation IoU: {val_segmentation_iou:.4f}, "
+                    f"Validation Classification Precision: {val_classification_precision:.4f}, "
+                    f"Validation Classification Recall: {val_classification_recall:.4f}, "
+                    f"Validation Segmentation Precision: {val_segmentation_precision:.4f}, "
+                    f"Validation Segmentation Recall: {val_segmentation_recall:.4f}, "
+                    f"Combined Metric: {combined_metric:.4f}\n")
+            
             if combined_metric > best_combined_metric:
                 best_combined_metric = combined_metric
                 best_params = {
@@ -358,8 +394,8 @@ def find_best_model_siamese(use_pre_trained_model=True):
         print("\nEvaluating the best model on test data...")
         metrics = best_model.evaluate()
         
-        classification_metrics = best_model.calculate_classification_metrics()
-        segmentation_metrics = best_model.calculate_segmentation_metrics()
+        classification_metrics = best_model.calculate_classification_metrics(False)
+        segmentation_metrics = best_model.calculate_segmentation_metrics(False)
         classification_precision = classification_metrics.get('classification_macro_precision', 0)
         classification_recall = classification_metrics.get('classification_macro_recall', 0)
         segmentation_precision = segmentation_metrics.get('segmentation_precision', 0)
