@@ -60,11 +60,11 @@ def find_best_model(use_pre_trained_model=True):
     # epochs_list = [5, 10, 20]
     # batch_sizes = [16, 32, 64]
 
-    optimizers = ['adamw']
-    learning_rates = [0.001]
-    dropout_rates = [0.5]
-    epochs_list = [50]
-    batch_sizes = [8]
+    optimizers = ['adam', 'sgd']
+    learning_rates = [0.001, 0.0001]
+    dropout_rates = [0.2, 0.4]
+    epochs_list = [15, 30]
+    batch_sizes = [16, 32] # Daca nu ai suficient RAM foloseste [8]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
 
     early_stopping = EarlyStopping(
@@ -274,11 +274,11 @@ def find_best_model_siamese(use_pre_trained_model=True):
     # epochs_list = [5, 10, 20]
     # batch_sizes = [16, 32, 64]
     
-    optimizers = ['adam']
-    learning_rates = [0.001]
-    dropout_rates = [0.5]
-    epochs_list = [5]
-    batch_sizes = [16]
+    optimizers = ['adam', 'adamw']
+    learning_rates = [0.001, 0.0001]
+    dropout_rates = [0.3, 0.5]
+    epochs_list = [15, 30]
+    batch_sizes = [16, 32] # Daca nu ai suficient RAM foloseste [8]
     param_combinations = itertools.product(optimizers, learning_rates, dropout_rates, epochs_list, batch_sizes)
     
     class CombinedMetricCallback(tf.keras.callbacks.Callback):
