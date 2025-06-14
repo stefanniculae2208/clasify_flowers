@@ -7,8 +7,9 @@ from tensorflow.keras.applications import MobileNetV2
 
 
 class FlowerCNN:
-    def __init__(self, input_shape=(128, 128, 3)):
+    def __init__(self, input_shape=(128, 128, 3), num_classes=102):
         self.input_shape = input_shape
+        self.num_classes = num_classes
         self.train_images = []
         self.train_labels = []
         self.validation_images = []
@@ -112,7 +113,11 @@ class FlowerCNN:
     def evaluate(self):
         loss, accuracy = self.model.evaluate(self.test_images, self.test_labels)
         print(f"Test Accuracy: {accuracy * 100}%")
-        return accuracy
+        
+        # Calculate confusion matrix
+        cm = self.calculate_confusion_matrix()
+        
+        return accuracy, cm
         
         
     def calculate_classification_metrics(self, use_validation=False):
@@ -140,20 +145,19 @@ class FlowerCNN:
             
         predictions = self.model.predict(images)
         predicted_classes = np.argmax(predictions, axis=1)
-        num_classes = 102  # Number of flower classes
-        true_positives = np.zeros(num_classes)
-        false_positives = np.zeros(num_classes)
-        false_negatives = np.zeros(num_classes)
+        true_positives = np.zeros(self.num_classes)
+        false_positives = np.zeros(self.num_classes)
+        false_negatives = np.zeros(self.num_classes)
         
-        for i in range(num_classes):
+        for i in range(self.num_classes):
             true_positives[i] = np.sum((predicted_classes == i) & (true_classes == i))
             false_positives[i] = np.sum((predicted_classes == i) & (true_classes != i))
             false_negatives[i] = np.sum((predicted_classes != i) & (true_classes == i))
 
-        precision = np.zeros(num_classes)
-        recall = np.zeros(num_classes)
+        precision = np.zeros(self.num_classes)
+        recall = np.zeros(self.num_classes)
         
-        for i in range(num_classes):
+        for i in range(self.num_classes):
             if true_positives[i] + false_positives[i] > 0:
                 precision[i] = true_positives[i] / (true_positives[i] + false_positives[i])
             else:
@@ -192,3 +196,34 @@ class FlowerCNN:
         }
         
         return metrics
+
+    def calculate_confusion_matrix(self, use_validation=False):
+        """
+        Calculate the confusion matrix for the classification task
+        
+        Args:
+            use_validation (bool): Whether to use validation data instead of test data
+            
+        Returns:
+            numpy.ndarray: Confusion matrix where rows are true labels and columns are predicted labels
+        """
+        if use_validation:
+            if self.validation_images is None or self.validation_labels is None or self.model is None:
+                print("Validation data or model not available")
+                return None
+            images = self.validation_images
+            true_classes = self.validation_labels
+        else:
+            if self.test_images is None or self.test_labels is None or self.model is None:
+                print("Test data or model not available")
+                return None
+            images = self.test_images
+            true_classes = self.test_labels
+            
+        predictions = self.model.predict(images)
+        predicted_classes = np.argmax(predictions, axis=1)
+        cm = np.zeros((102, 102), dtype=int)  # 102 flower classes
+        for i in range(len(true_classes)):
+            cm[true_classes[i]][predicted_classes[i]] += 1
+        
+        return cm

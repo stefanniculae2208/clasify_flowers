@@ -12,6 +12,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow as tf
 from PIL import Image
 import scipy.io
+import csv
 
 from src.flower_dataset import FlowerDataset
 from src.flower_cnn import FlowerCNN
@@ -49,16 +50,10 @@ def find_best_model(use_pre_trained_model=True):
     dataset.load_data()
     dataset.summary()
 
-    flower_cnn = FlowerCNN(input_shape)
+    flower_cnn = FlowerCNN(input_shape, 102)
     flower_cnn.set_training_data(dataset.train_images_memmap, dataset.train_labels)
     flower_cnn.set_validation_data(dataset.validation_images_memmap, dataset.validation_labels)
     flower_cnn.set_test_data(dataset.test_images_memmap, dataset.test_labels)
-
-    # optimizers = ['adam', 'sgd', 'rmsprop', 'adamax', 'nadam']
-    # learning_rates = [0.0001, 0.001, 0.01]
-    # dropout_rates = [0.3, 0.5, 0.7]
-    # epochs_list = [5, 10, 20]
-    # batch_sizes = [16, 32, 64]
 
     optimizers = ['adam', 'sgd']
     learning_rates = [0.001, 0.0001]
@@ -128,12 +123,20 @@ def find_best_model(use_pre_trained_model=True):
             }
             flower_cnn.model = model
 
-    test_accuracy = flower_cnn.evaluate()
+    test_accuracy, test_confusion_matrix = flower_cnn.evaluate()
     
     classification_metrics = flower_cnn.calculate_classification_metrics(use_validation=False)
     test_classification_precision = classification_metrics.get('classification_macro_precision', 0)
     test_classification_recall = classification_metrics.get('classification_macro_recall', 0)
     test_classification_f1 = classification_metrics.get('classification_macro_f1', 0)
+
+    cm_filename = f"data/confusion_matrix_cnn_{test_classification_precision:.2f}_{test_classification_recall:.2f}.csv"
+    with open(cm_filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([''] + [f'Predicted_{i}' for i in range(flower_cnn.num_classes)])
+        for i, row in enumerate(test_confusion_matrix):
+            writer.writerow([f'Actual_{i}'] + list(row))
+    print(f"Confusion matrix saved to {cm_filename}")
     
     print(f"\nTest Classification Metrics:")
     print(f"Accuracy: {test_accuracy:.4f}")
@@ -267,12 +270,6 @@ def find_best_model_siamese(use_pre_trained_model=True):
     dataset = FlowerDataset("./data/102flowers/jpg", "./utils/imagelabels.mat", "./utils/setid.mat", input_shape, segmentation_dir)
     dataset.load_data()
     dataset.summary()
-
-    # optimizers = ['adam', 'sgd', 'rmsprop', 'adamax', 'nadam']
-    # learning_rates = [0.0001, 0.001, 0.01]
-    # dropout_rates = [0.3, 0.5, 0.7]
-    # epochs_list = [5, 10, 20]
-    # batch_sizes = [16, 32, 64]
     
     optimizers = ['adam', 'adamw']
     learning_rates = [0.001, 0.0001]
@@ -392,7 +389,7 @@ def find_best_model_siamese(use_pre_trained_model=True):
     
     try:
         print("\nEvaluating the best model on test data...")
-        metrics = best_model.evaluate()
+        metrics, confusion_matrix = best_model.evaluate()
         
         classification_metrics = best_model.calculate_classification_metrics(False)
         segmentation_metrics = best_model.calculate_segmentation_metrics(False)
@@ -400,6 +397,14 @@ def find_best_model_siamese(use_pre_trained_model=True):
         classification_recall = classification_metrics.get('classification_macro_recall', 0)
         segmentation_precision = segmentation_metrics.get('segmentation_precision', 0)
         segmentation_recall = segmentation_metrics.get('segmentation_recall', 0)
+
+        cm_filename = f"data/confusion_matrix_siamese_{classification_precision:.2f}_{classification_recall:.2f}.csv"
+        with open(cm_filename, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([''] + [f'Predicted_{i}' for i in range(best_model.num_classes)])
+            for i, row in enumerate(confusion_matrix):
+                writer.writerow([f'Actual_{i}'] + list(row))
+        print(f"Confusion matrix saved to {cm_filename}")
 
         os.makedirs("./data/models", exist_ok=True)
         model_name = f"best_siamese_model_cp{classification_precision:.4f}_cr{classification_recall:.4f}_sp{segmentation_precision:.4f}_sr{segmentation_recall:.4f}.keras"

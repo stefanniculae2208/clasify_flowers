@@ -211,18 +211,53 @@ class FlowerSiamese:
     def evaluate(self):
         """Evaluate the model on test data"""
         results = self.model.evaluate(
-            self.test_images, 
+            self.test_images,
             {
                 'classification_output': self.test_labels,
                 'segmentation_output': self.test_masks
             },
             verbose=1,
-            return_dict=True 
+            return_dict=True
         )
         print("\nEvaluation Results:")
         for name, value in results.items():
-            print(f"{name}: {value}")     
-        return results
+            print(f"{name}: {value}")
+            
+        cm = self.calculate_confusion_matrix()
+        
+        return results, cm
+    
+    def calculate_confusion_matrix(self, use_validation=False):
+        """
+        Calculate the confusion matrix for the classification task
+        
+        Args:
+            use_validation (bool): Whether to use validation data instead of test data
+            
+        Returns:
+            numpy.ndarray: Confusion matrix where rows are true labels and columns are predicted labels
+        """
+        if use_validation:
+            if self.validation_images is None or self.validation_labels is None or self.model is None:
+                print("Validation data or model not available")
+                return None
+            images = self.validation_images
+            true_classes = self.validation_labels
+        else:
+            if self.test_images is None or self.test_labels is None or self.model is None:
+                print("Test data or model not available")
+                return None
+            images = self.test_images
+            true_classes = self.test_labels
+            
+        predictions = self.model.predict(images)
+        classification_predictions = predictions['classification_output']
+        predicted_classes = np.argmax(classification_predictions, axis=1)
+        cm = np.zeros((self.num_classes, self.num_classes), dtype=int)
+        for i in range(len(true_classes)):
+            cm[true_classes[i]][predicted_classes[i]] += 1
+            
+        return cm
     
     def calculate_classification_metrics(self, use_validation=False):
         """
